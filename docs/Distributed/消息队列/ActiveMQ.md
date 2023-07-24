@@ -2,12 +2,10 @@
 
 ：一个消息队列服务器。
 - [官方文档](http://activemq.apache.org/components/classic/documentation)
-- 采用 Java 开发，由 ASF 基金会管理。
-- 功能丰富，支持 JMS、AMQP、STOMP、MQTT 等多种协议。
 
 ## 部署
 
-### 单示例
+### 单节点
 
 - 先安装 JRE 1.7+ 环境，然后下载二进制版：
   ```sh

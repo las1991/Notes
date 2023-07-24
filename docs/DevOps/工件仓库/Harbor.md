@@ -9,7 +9,7 @@
 
 - Docker Hub
   - ：Docker 官方的镜像仓库，地址为 `https://hub.docker.com` 。
-  - 公开的镜像不需登录就可以 Pull ，但 Push 镜像时需要登录。
+  - 公开的镜像不需登录就可以 pull ，但 push 镜像时需要登录。
 - Docker Registry
   - ：一个提供私有镜像仓库的服务器，由 Docker 官方开源。
   - 功能比 Harbor 少，没有提供 Web UI 。
@@ -18,26 +18,32 @@
 
 - 下载官方发行版：
   ```sh
-  wget https://github.com/goharbor/harbor/releases/download/v2.4.0/harbor-online-installer-v2.4.0.tgz
+  wget https://github.com/goharbor/harbor/releases/download/v2.7.1/harbor-online-installer-v2.7.1.tgz
   ```
-  解压后，使用其中的脚本：
+  解压后，编辑配置文件 harbor.yml ，然后执行脚本：
   ```sh
   sh install.sh
+                # --with-chartmuseum  # 启用 chart repository
                 # --with-notary       # 启用 notary ，检查镜像的数字签名。这需要 Harbor 采用 HTTPS
                 --with-trivy          # 启用 trivy 漏洞扫描器
-                --with-chartmuseum    # 启用 chart 仓库
   ```
-  - 部署之后，会生成一个配置文件 harbor.yml 。
-  - Harbor 包含 harbor-core、harbor-db、registry、Nginx、Redis 等多个服务，基于 docker-compose 启动。
+  - 这会基于 docker-compose 部署 Harbor ，包含 harbor-core、harbor-db、registry、Nginx、Redis 等多个服务。
     - 不会将日志输出到 docker 容器，而是保存到日志目录。
     - 部署时至少需要 4G 内存。
-  - 修改配置之后需要执行：
+  - 部署之后，如果修改配置文件 harbor.yml ，则需要执行：
     ```sh
-    ./prepare --with-trivy  --with-chartmuseum
-    docker-compose down
+    ./prepare --with-trivy
     docker-compose up -d
     ```
-- 用启用 HTTPS 的 Nginx 反向代理 Harbor 时，需要在 Nginx 中加入 `proxy_set_header X-Forwarded-Proto $scheme;` ，并在 `harbor/common/config/nginx/nginx.conf` 中删除相同配置。
+- 用 Nginx 的 HTTPS 端口反向代理 Harbor 时，需要在 Nginx 中加入 `proxy_set_header X-Forwarded-Proto $scheme;` ，并在 `harbor/common/config/nginx/nginx.conf` 中删除相同配置。
+
+### 版本
+
+- v2.6.0
+  - 于 2022 年发布。
+  - 增加缓存层（cache layer），但默认禁用。它用于将客户端对 repository、artifact 等信息的查询结果缓存在 Redis 中，从而减少查询耗时。不会缓存 image blob 。
+  - 弃用 notary ，建议改用 cosign 。
+  - 弃用 chartmuseum 。因为 helm v3.8.0 连接到符合 OCI 标准的 Docker 镜像仓库就可以推送、拉取 chart ，不需要专门的 chartmuseum 仓库。
 
 ## 功能
 
@@ -75,11 +81,11 @@
   - ：用于定义一些远程的仓库服务器，供其它功能调用。
 
 - 复制（Replications）
-  - ：用于在本地 Harbor 仓库与其它远程仓库之间 Push 或 Pull 镜像。
+  - ：用于在本地 Harbor 仓库与其它远程仓库之间 push 或 pull 镜像。
   - 拉取 Docker Hub 的官方镜像时，需要指定源命名空间为 library ，比如 `library/hello-world` 。
-  - Pull 镜像时，如果不指定存储到哪个命名空间，则默认采用源命名空间的名称。
+  - pull 镜像时，如果不指定存储到哪个命名空间，则默认采用源命名空间的名称。
     - 如果不存在该命名空间则自动创建，且访问级别为 Private 。
-  - Pull 镜像时，指定的源镜像名支持模糊匹配。如下：
+  - pull 镜像时，指定的源镜像名支持模糊匹配。如下：
     ```sh
     library/*                 # 匹配 library 目录下的所有镜像，但不包括子目录
     library/*/*               # 匹配两级子目录

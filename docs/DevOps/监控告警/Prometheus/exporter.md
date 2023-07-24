@@ -4,10 +4,6 @@
 - 主流软件大多提供了自己的 exporter 程序，比如 mysqld_exporter、redis_exporter 。有的软件甚至本身就集成了 exporter 格式的 HTTP API 。
   - 没必要为所有软件部署 exporter 程序，因为有的监控指标较少，不如自制。
   - Prometheus 提供了多种编程语言的库，供用户开发 exporter 程序。例如 Python 的第三方库 prometheus-client 。
-- Prometheus 可通过多种方式采集监控指标：
-  - exporter 方式：程序监听一个符合 exporter 格式的 HTTP 端口，然后 Prometheus 定期发送 GET 请求到该端口，采集监控指标。
-  - pushgateway 方式：程序将监控指标通过 POST 请求发送到 pushgateway ，然后 Prometheus 定期从 pushgateway 采集监控指标。
-  - 代理方式：程序将监控指标定期写入文件、数据库等媒介，然后 node_exporter 等工具收集这些监控指标，加入自己 exporter 端口的响应中。
 
 ## 集成类型
 
@@ -73,17 +69,17 @@
   jenkins_node_online_value               # node 在线数
   jenkins_executor_count_value            # 执行器的总数
   jenkins_executor_in_use_value           # 执行器正在使用的数量
-  jenkins_node_builds_count               # Jenkins 本次启动以来的构建总次数
+  jenkins_node_builds_count               # Jenkins 本次启动以来的累计构建次数
 
   jenkins_job_count_value                 # Job 总数
   jenkins_queue_size_value                # 构建队列中的 Job 数（最好为 0 ）
-  default_jenkins_builds_duration_milliseconds_summary_count{, jenkins_job='xxx'}  # Job 的构建总次数（当构建结束时才记录）
-  default_jenkins_builds_duration_milliseconds_summary_sum{jenkins_job='xxx'}      # Job 的构建总耗时（包括被阻塞的时长）
-  default_jenkins_builds_success_build_count{jenkins_job='xxx'}                    # Job 构建成功的次数
-  default_jenkins_builds_failed_build_count{jenkins_job='xxx'}                     # Job 构建失败的次数
-  default_jenkins_builds_last_build_start_time_milliseconds{jenkins_job='xxx'}     # Job 最近一次构建的开始时间
-  default_jenkins_builds_last_build_duration_milliseconds{jenkins_job='xxx'}       # Job 最近一次构建的持续时长
-  default_jenkins_builds_last_build_result{jenkins_job='xxx'}                      # Job 最近一次构建的结果（ 1 代表 success 、0 代表其它状态）
+  default_jenkins_builds_duration_milliseconds_summary_count{jenkins_job='xx'} # Job 的构建总次数（当构建结束时才记录）
+  default_jenkins_builds_duration_milliseconds_summary_sum{jenkins_job='xx'}   # Job 的构建总耗时（包括被阻塞的时长）
+  default_jenkins_builds_success_build_count_total{jenkins_job='xx'}           # Job 构建成功的累计次数
+  default_jenkins_builds_failed_build_count_total{jenkins_job='xx'}            # Job 构建失败的累计次数
+  default_jenkins_builds_last_build_start_time_milliseconds{jenkins_job='xx'}  # Job 最近一次构建的开始时间
+  default_jenkins_builds_last_build_duration_milliseconds{jenkins_job='xx'}    # Job 最近一次构建的持续时长
+  default_jenkins_builds_last_build_result{jenkins_job='xx'}                   # Job 最近一次构建的结果（ 1 代表 success 、0 代表其它状态）
   ```
   - 如果删除某个 Job 的构建记录，则会使其总的构建次数减少。
 
@@ -229,10 +225,23 @@
 - 指标示例：
   ```sh
   # 关于 apiserver
-  apiserver_request_duration_seconds_count      # 各种 HTTP 请求的次数
-  apiserver_request_duration_seconds_sum        # 各种 HTTP 请求的耗时
+  irate(process_cpu_seconds_total[1m])  # 占用 CPU 核数
+  process_resident_memory_bytes         # 占用 RSS 内存
+  sum(delta(apiserver_request_total{code=~"4.*|5.*"}[1m])) by(code, resource, verb) # 失败的 HTTP 请求数
+  sum(delta(apiserver_request_duration_seconds_count[1m])) by(resource, verb)     # 各种 HTTP 请求的数量（每分钟）
+  sum(delta(apiserver_request_duration_seconds_sum[1m])) by(resource, verb)       # 各种 HTTP 请求的耗时（每分钟）
+  sum(delta(apiserver_response_sizes_sum[1m])) by(resource, verb)                 # 各种 HTTP 响应的体积（每分钟）
+  sum(apiserver_current_inflight_requests) by(request_kind)   # 读/写请求的正在执行数量
+  sum(apiserver_current_inqueue_requests) by(request_kind)    # 读/写请求的等待执行数量
+  sum(apiserver_storage_objects) by(resource)                 # 各种 resource 的数量
+  sum(apiserver_registered_watchers) by(kind)                 # 各种 watcher 的数量
+  sum(delta(apiserver_watch_events_total[1m])) by(kind)       # 各种 watch event 的数量（每分钟）
+  sum(delta(apiserver_watch_events_sizes_sum[1m])) by(kind)   # 各种 watch event 的体积（每分钟）
+
+  # 关于 etcd
   etcd_request_duration_seconds_count
   etcd_request_duration_seconds_sum
+  etcd_db_total_size_in_bytes
 
   # 关于 kubelet
   kubernetes_build_info                                                     # k8s 版本信息
@@ -258,21 +267,22 @@
   prometheus_build_info{branch="HEAD", goversion="go1.14.2", instance="10.0.0.1:9090", job="prometheus", revision="ecee9c8abfd118f139014cb1b174b08db3f342cf", version="2.18.1"}  # 版本信息
 
   time() - process_start_time_seconds                             # 运行时长（s）
-  rate(process_cpu_seconds_total[1m])                             # 占用 CPU 核数
+  irate(process_cpu_seconds_total[1m])                            # 占用 CPU 核数
   process_resident_memory_bytes                                   # 占用内存
   prometheus_tsdb_storage_blocks_bytes                            # tsdb block 占用的磁盘空间
   sum(delta(prometheus_http_requests_total[1m])) by (code)        # 每分钟收到 HTTP 请求的次数
   sum(delta(prometheus_http_request_duration_seconds_sum[1m]))    # 每分钟处理 HTTP 请求的耗时（s）
 
   count(up == 1)                                                  # target 在线数
-  sum(scrape_samples_scraped)                                     # scrape 的指标数
-  sum(scrape_duration_seconds)                                    # scrape 的耗时（s）
+  prometheus_tsdb_head_series                                     # head block 中的 series 数量
+  sum(scrape_samples_scraped)                                     # 抓取的 sample 数
+  sum(scrape_duration_seconds)                                    # 抓取的耗时（s）
   sum(delta(prometheus_rule_evaluations_total[1m])) without (rule_group)          # rule 每分钟的执行次数
   sum(delta(prometheus_rule_evaluation_failures_total[1m])) without (rule_group)  # rule 每分钟的执行失败次数
   delta(prometheus_rule_evaluation_duration_seconds_sum[1m])                      # rule 每分钟的执行耗时（s）
 
-  ALERTS{alertname="xxx", alertstate="pending|firing"}            # 存在的警报
-  ALERTS_FOR_STATE{alertname="xxx"}                               # 警报开始的时间戳（这是 pending 状态的开始时间，不能区分 firing 状态）
+  ALERTS{alertname="xx", alertstate="pending|firing"}             # 存在的警报
+  ALERTS_FOR_STATE{alertname="xx"}                                # 警报开始的时间戳（这是 pending 状态的开始时间，不能区分 firing 状态）
 
   count({job="xx"}) by(__name__)    # 列出所有指标名
   count({job="xx"}) by(__name__) unless on(__name__) count({job="xx"} offset 6h) by(__name__) # 找到比 6h 之前多出的指标（适合更新 exporter 版本时，发现指标的变化）
@@ -431,7 +441,7 @@
 
 ### cAdvisor
 
-：用于监控容器。
+：全名为 container Advisor ，用于监控容器。
 - [GitHub](https://github.com/google/cadvisor)
 - 该工具由 Google 公司开发，支持将监控数据输出到 Prometheus、InfluxDB、Kafka、ES 等存储服务。
 - 下载后启动：
@@ -445,7 +455,7 @@
   - 它依赖版本较新的 glibc 库，因此建议运行官方 Docker 镜像。
 - 它提供了 Web 监控页面，默认只允许从 localhost 访问，可以加上 HTTP Basic Auth 后公开：
   ```sh
-  htpasswd -cb passwd admin 123456
+  htpasswd -Bbc passwd admin 123456
   ./cadvisor --http_auth_file passwd --http_auth_realm 0.0.0.0
   ```
   访问地址为 `127.0.0.1:8080/containers/` 。
@@ -492,22 +502,36 @@
 
 ：用于从 JMX 端口获取监控指标。
 - [GitHub](https://github.com/prometheus/jmx_exporter)
-- 用法：
+- 用法一：将 jmx_exporter 集成到待监控的 Java 进程中
   1. 下载 jmx_exporter 的 jar 文件。
-  2. 创建 jmx_exporter 的配置文件：
+  2. 编写 jmx_exporter 的配置文件 config.yaml ：
       ```yml
       rules:
-      - pattern: "jvm.*"    # 这里只采集 JVM 的监控指标，不监控其它 bean
+      - pattern: "jvm.*"        # 这里只采集 JVM 的监控指标，不监控其它 bean
       ```
   3. 在 Java 程序的启动命令中加入 `-javaagent:jmx_prometheus_javaagent-0.17.2.jar=8081:config.yaml` ，即可在 8081 端口提供 exporter 指标。
-      - jmx_exporter 作为 javaagent 运行时几乎不会增加 Java 进程的 CPU 开销，除非 Prometheus 的采集间隔很短。
+      - jmx_exporter 作为 java agent 运行时几乎不会增加 Java 进程的 CPU 开销，除非 Prometheus 的采集间隔很短。
+- 用法二：独立运行 jmx_exporter 进程，监控另一个 Java 进程
+  1. 编写 jmx_exporter 的配置文件 config.yaml ：
+      ```yml
+      hostPort: 10.0.0.1:9999   # 访问另一个 Java 进程的 JMX 端口，从而采集监控指标
+      rules:
+      - pattern: "jvm.*"
+      ```
+  2. 启动 jmx_exporter ，作为 HTTP 服务器运行：
+      ```sh
+      java -jar jmx_prometheus_httpserver-0.18.0.jar 8081 config.yaml
+      ```
+
 - 指标示例：
   ```sh
-  jvm_memory_bytes_committed{area="heap"}     # JVM 从操作系统申请的内存量，分为 heap、nonheap
-  jvm_memory_bytes_used{area="heap"}          # JVM 内存的实际用量，分为 heap、nonheap
-  jvm_memory_bytes_used / jvm_memory_bytes_committed  # JVM 内存的实际用量，占申请量的百分比
+  jvm_memory_bytes_max                        # JVM 内存允许的最大容量，分为 heap、nonheap 两块内存区域
+  jvm_memory_bytes_committed{area="heap"}     # JVM 内存的当前容量，即从操作系统申请的内存量
+  jvm_memory_bytes_used{area="heap"}          # JVM 内存的使用量，即当前容量中存放了有效数据的部分
+  jvm_memory_bytes_used / jvm_memory_bytes_committed  # JVM 内存的使用量，占当前容量的百分比
 
-  jvm_memory_pool_bytes_committed             # JVM 内存池，分为 Metaspace、Eden Space、Survivor Space 等
+  jvm_memory_pool_bytes_max                   # JVM 内存池，分为 Metaspace、Eden Space、Survivor Space 等区域
+  jvm_memory_pool_bytes_committed
   jvm_memory_pool_bytes_used
   jvm_memory_pool_bytes_used / jvm_memory_pool_bytes_committed
 
@@ -551,6 +575,9 @@
   # 关于内存
   node_memory_MemTotal_bytes                    # 内存总量，单位 bytes
   node_memory_MemAvailable_bytes                # 内存可用量，CentOS 7 以上版本才支持该指标
+  1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes # 内存使用率
+  node_memory_Buffers_bytes
+  node_memory_Cached_bytes
   node_memory_SwapTotal_bytes                   # swap 内存总量
   node_memory_SwapFree_bytes                    # swap 内存可用量
 
@@ -750,8 +777,8 @@
   rate(windows_logical_disk_write_bytes_total[1m])                        # 磁盘每秒写入量
 
   # net collector
-  rate(windows_net_bytes_received_total{nic="xxx"}[1m])                   # 接口每秒接收量
-  rate(windows_net_bytes_sent_total{nic="xxx"}[1m])                       # 接口每秒发送量
+  rate(windows_net_bytes_received_total{nic="xx"}[1m])                    # 接口每秒接收量
+  rate(windows_net_bytes_sent_total{nic="xx"}[1m])                        # 接口每秒发送量
 
   # process collector
   timestamp(windows_process_start_time) - (windows_process_start_time>0)  # 进程的运行时长
@@ -891,7 +918,7 @@
   elasticsearch_index_stats_indexing_index_time_seconds_total
   elasticsearch_index_stats_merge_total                         # index merge 的次数
   elasticsearch_index_stats_merge_time_seconds_total
-  elasticsearch_index_stats_refresh_total                       # index refresh 的次数
+  elasticsearch_index_stats_refresh_total                       # index refresh 的次数。这是累计该 index 下属所有 shard 的 refresh 次数
   elasticsearch_index_stats_refresh_time_seconds_total
   elasticsearch_index_stats_search_fetch_time_seconds_total     # search fetch 的次数
   elasticsearch_index_stats_search_fetch_total
@@ -916,17 +943,17 @@
   services:
     kafka_exporter:
       container_name: kafka_exporter
-      image: danielqsj/kafka-exporter:v1.4.2
+      image: danielqsj/kafka-exporter:v1.6.0
       restart: unless-stopped
       command:
         # - --web.listen-address=:9308
         # - --web.telemetry-path=/metrics
         - --kafka.server=10.0.0.1:9092    # broker 的地址，可以多次使用该选项
-        - --kafka.version=2.2.0
+        - --kafka.version=2.8.0
 
         # - --sasl.enabled                # 是否启用 SASL/PLAIN 认证，默认为 false
         # - --sasl.mechanism=plain
-        # - --sasl.username=xx
+        # - --sasl.username=***
         # - --sasl.password=******
 
         # - --topic.filter=.*             # 通过正则表达式筛选要监控的 topic ，例如 filter=^[^_].*
@@ -955,18 +982,84 @@
   kafka_consumergroup_current_offset{consumergroup="x", topic="x", partition="x"}   # 某个 consumergroup 在某个 partition 的偏移量
   kafka_consumergroup_lag{consumergroup="x", topic="x", partition="x"}              # 某个 consumergroup 在某个 partition 的滞后量
   ```
-  - 不支持监控 Topic 占用的磁盘空间。
+- 同类产品：
+  - kafka_exporter 没有监控 Topic 占用的磁盘空间，而 kminion 提供了该监控指标。
+  - 如果对性能有更高的追求，可给 Kafka 声明 JMX_PORT 环境变量，然后用 jmx_exporter 监控其 JVM 状态。
+
+### kminion
+
+：用于监控 Kafka 。
+- [GitHub](https://github.com/redpanda-data/kminion)
+- 用 docker-compose 部署：
+  ```yml
+  version: '3'
+
+  services:
+    kminion:
+      container_name: kminion
+      image: vectorized/kminion:v2.2.1
+      restart: unless-stopped
+      environment:
+        CONFIG_FILEPATH: /app/kminion.yml
+      ports:
+        - 8080:8080
+      volumes:
+        - /etc/localtime:/etc/localtime:ro
+        - ./kminion.yml:/app/kminion.yml
+  ```
+  配置文件 kminion.yml 示例：
+  ```yml
+  kafka:
+    brokers: ["10.0.0.1:9092"]
+    sasl:
+      enabled: true
+      mechanism: PLAIN
+      username: ***
+      password: ******
+  # minion:
+  #   consumerGroups:
+  #     allowedGroups: [".*"]   # 通过正则表达式筛选要监控的对象
+  #     ignoredGroups: []
+  #   topics:
+  #     allowedTopics: [".*"]
+  #     ignoredTopics: []
+  #     infoMetric:
+  #       configKeys: ["cleanup.policy"]  # 监控 topic 的一些配置参数
+  ```
+- 指标示例：
+  ```sh
+  # 关于 broker
+  kminion_kafka_cluster_info{broker_count="x", cluster_id="***", cluster_version="xx", controller_id="x"}   # kafka 集群的信息
+  kminion_kafka_broker_log_dir_size_total_bytes{broker_id="x"}    # broker 占用的磁盘空间
+
+  # 关于 topic
+  kminion_kafka_topic_info{topic_name="xx", cleanup_policy="delete", partition_count="6", replication_factor="1"} # topic 的信息
+  kminion_kafka_topic_log_dir_size_total_bytes  # topic 在所有 broker 总共占用的磁盘空间，包括 replica
+  kminion_kafka_topic_partition_high_water_mark{topic_name="xx", partition_id="x"}  # 单个分区的 HW 偏移量
+
+  # 关于 consumer group
+  kminion_kafka_consumer_group_info{group_id="xx", coordinator_id="xx", protocol="range", protocol_type="consumer", state="Stable"} # 消费组的信息
+  kminion_kafka_consumer_group_members{group_id="xx"} # 消费组的成员数
+
+  # 某个 consumer group 对于某个 topic 的监控指标
+  kminion_kafka_consumer_group_topic_members{group_id="xx", topic_name="xx"}  # 被 assigned partitions 的成员数。如果低于该 group 的成员数，则说明有成员空闲
+  kminion_kafka_consumer_group_topic_lag{group_id="xx", topic_name="xx"}  # 消费的滞后量，是所有分区的 lag 之和
+  kminion_kafka_consumer_group_topic_partition_lag{group_id="xx", topic_name="xx", partition_id="x"}  # 单个分区的 lag
+  kminion_kafka_consumer_group_topic_offset_sum # 消费的偏移量，是所有分区的 committed offset 之和
+  ```
 
 ### kube-state-metrics
 
-：用于采集 k8s 的监控指标。
+：用于监控 k8s 内部组件。
 - [GitHub](https://github.com/kubernetes/kube-state-metrics)
-- kube-state-metrics 会缓存所有 k8s 对象的状态数据。并监听 k8s event ，据此更新发生变化的部分数据。
-  - 优点：
-    - 每次采集监控指标时，是增量采集而不是全量采集，减少了耗时。
-  - 缺点：
-    - 缓存增加了内存开销。
-    - 删除一个 Pod 之后，kube-state-metrics 会根据缓存继续输出该 Pod 的监控指标，大概 3 分钟之后才停止。
+- kube-state-metrics 只是采集 k8s 内部组件的监控指标，没有采集容器的监控指标，因此通常跟 cAdvisor 组合使用。
+- kube-state-metrics 会缓存所有 k8s 对象的状态数据。并监听 k8s event ，在发生事件时更新相关的状态数据。
+  - 优点：每次采集监控指标时，是增量采集而不是全量采集，减少了耗时。
+  - 缺点：kube-state-metrics 进程需要占用更多内存，来缓存数据。
+- cAdvisor 也使用了缓存，但没有监听 k8s event ，不能及时更新监控指标。
+  - 如果用 `docker rm -f` 删除一个容器，则 cAdvisor 会根据缓存继续输出该容器的监控指标，大概 4 分钟之后才停止。
+  - 假设 Pod 内某个容器因为 OOM 等原因终止，然后根据 restartPolicy 自动创建新容器。短时间内 cAdvisor 会根据缓存输出旧容器的监控指标，因此用 `sum(container_memory_xx_bytes{container!~"POD|", pod="xx"})` 会计算新容器、旧容器占用的内存之和，显得该 Pod 占用的内存异常多。
+  - [相关 Issue](https://github.com/google/cadvisor/issues/2844)
 
 #### 部署
 
@@ -1013,9 +1106,10 @@
   *_annotations
   *_labels
 
-  kube_node_role{role="worker"}                             # node 节点类型
-  kube_node_status_condition{condition="xx", status="true"} # node 是否处于某种状态
-  kube_node_status_allocatable{resource="cpu", unit="core"} # node 各种资源的容量
+  kube_node_role{role="worker"}                                           # node 节点类型
+  kube_node_status_condition{condition="Ready", status="true"}            # node 是否处于 Ready 状态
+  kube_node_status_condition{condition!~"Ready", status=~"true|unknown"}  # node 是否处于异常状态
+  kube_node_status_allocatable{resource="cpu", unit="core"}               # node 各种资源的容量
 
   kube_pod_owner{owner_kind="ReplicaSet", owner_name="xx"}  # 父资源
   kube_pod_status_scheduled{condition="true"} # Pod 是否已被调度。这包括停止运行但未删除的 Pod
@@ -1090,14 +1184,16 @@
   services:
     mongodb_exporter:
       container_name: mongodb_exporter
-      image: bitnami/mongodb-exporter:0.20.7
+      image: bitnami/mongodb-exporter:0.37.0
       command:
         # - --web.listen-address=:9216
         # - --web.telemetry-path=/metrics
+        # - --log.level=error
         - --mongodb.uri=mongodb://127.0.0.1:27017/admin
-        - --mongodb.collstats-colls=db1.col1,db1.col2     # 监控指定集合，可以只指定库名
-        # - --mongodb.indexstats-colls=db1.col1,db1.col2  # 监控指定索引
-        # - --discovering-mode                            # 自动发现 collstats-colls、indexstats-colls 的数据库的其它集合
+        - --mongodb.collstats-colls=db1.col1,db1.col2   # 监控指定集合的状态，可以只指定库名
+        - --mongodb.indexstats-colls=db1.col1,db1.col2  # 监控指定索引的状态
+        - --collect-all                                 # 启用全部监控指标，包括 dbstats、collstats、indexstats、replicasetstatus 等
+        - --discovering-mode                            # 自动发现 collstats-colls、indexstats-colls 的数据库的其它集合
       restart: unless-stopped
       ports:
         - 9216:9216
@@ -1115,11 +1211,24 @@
   # 关于主机
   mongodb_sys_cpu_num_cpus                                # 主机的 CPU 核数
 
+  # 关于 WiredTiger
+  mongodb_ss_wt_cache_bytes_currently_in_the_cache        # 缓存的总量
+  1 - delta(mongodb_ss_wt_cache_pages_read_into_cache[1m]) / delta(mongodb_ss_wt_cache_pages_requested_from_the_cache[1m])  # 缓存的命中率
+  mongodb_ss_wt_cache_tracked_dirty_bytes_in_the_cache    # 缓存的 dirty 量
+
   # 关于 collection
-  {__name__=~'mongodb_.*_storageStats_count'         , database="xx", collection="xx"}  # 文档数
-  {__name__=~'mongodb_.*_storageStats_size'          , database="xx", collection="xx"}  # 体积，单位 bytes
-  {__name__=~'mongodb_.*_storageStats_storageSize'   , database="xx", collection="xx"}  # 占用的磁盘空间
-  {__name__=~'mongodb_.*_storageStats_totalIndexSize', database="xx", collection="xx"}  # 索引的体积
+  mongodb_collstats_storageStats_count{database="xx", collection="xx"}  # collection 全部文档的数量，不包括已标记为 deleted 的文档
+  mongodb_collstats_storageStats_size                     # collection 全部文档的体积，单位 bytes
+  mongodb_collstats_storageStats_storageSize              # collection 全部文档占用的磁盘空间，默认会压缩
+  delta(mongodb_collstats_latencyStats_reads_ops[1m])     # collection 读操作的数量（每分钟）
+  delta(mongodb_collstats_latencyStats_reads_latency[1m]) # collection 读操作的延迟（每分钟），单位为微秒
+  mongodb_collstats_latencyStats_write_ops
+  mongodb_collstats_latencyStats_write_latency
+
+  # 关于 index
+  mongodb_collstats_storageStats_nindexes                 # collection 的 index 数量
+  mongodb_collstats_storageStats_totalIndexSize           # collection 的 index 占用的磁盘空间
+  delta(mongodb_indexstats_accesses_ops[1m])   # index 被访问次数
 
   # 关于操作
   delta(mongodb_ss_opcounters[1m])                        # 执行各种操作的数量
@@ -1214,7 +1323,9 @@
         # REDIS_USER: ***
         REDIS_PASSWORD: ******
         # REDIS_EXPORTER_IS_CLUSTER: 'false'    # 目标 redis 是否为集群模式
-        # REDIS_EXPORTER_CHECK_KEYS: db0=key1,db1=key1  # 在指定 db 中通过 SCAN 命令查找一些 key ，然后监控它们的值、长度
+        # REDIS_EXPORTER_CHECK_SINGLE_KEYS: db0=test,db1=test   # 在指定 db 中基于 SCAN 命令查找一些 key ，然后监控它们的 value 的 size
+        # REDIS_EXPORTER_CHECK_KEYS: db0=test*                  # 通过通配符，监控多个 key 的 value 的 size
+        # REDIS_EXPORTER_COUNT_KEYS: db0=test*                  # 通过通配符，监控多个 key 的数量
       ports:
         - 9121:9121
       volumes:
@@ -1252,5 +1363,7 @@
   # 关于 key
   delta(redis_expired_keys_total[1m])         # 每分钟过期的 key 数量
   redis_evicted_keys_total                    # 被 maxmemory-policy 驱逐的 key 数量
+  redis_keys_count{db="db0", key="test*"}     # 根据 REDIS_EXPORTER_COUNT_KEYS 监控的 key 数量
+  redis_key_size{db="db0", key="test*"}       # 根据 REDIS_EXPORTER_CHECK_SINGLE_KEYS 监控的 value 的 size
   ```
   - 这些监控指标主要从 Redis 的 `INFO` 命令获得。

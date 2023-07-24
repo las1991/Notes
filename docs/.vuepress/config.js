@@ -12,7 +12,7 @@ module.exports = {
         }],
         ['seo', {}],
         ['@vuepress/google-analytics', {
-            'ga': 'UA-155748502-1'
+            'ga': 'G-YLS8VYET64'
         }],
         ['vuepress-plugin-meilisearch',
             {
@@ -130,6 +130,10 @@ module.exports = {
                                 {
                                     title: "语法",
                                     path: "/Programming/编程语言/Java/语法"
+                                },
+                                {
+                                    title: "GC",
+                                    path: "/Programming/编程语言/Java/GC"
                                 }
                             ]
                         },
@@ -491,11 +495,29 @@ module.exports = {
                         },
                         {
                             title: "文件处理",
-                            path: "/Linux/文件/文件处理"
+                            path: "/Linux/文件/文件处理/文件处理",
+                            collapsable: false,
+                            children: [
+                                {
+                                    title: "拷贝文件",
+                                    path: "/Linux/文件/文件处理/拷贝文件"
+                                },
+                                {
+                                    title: "压缩文件",
+                                    path: "/Linux/文件/文件处理/压缩文件"
+                                }
+                            ]
                         },
                         {
                             title: "文本处理",
-                            path: "/Linux/文件/文本处理"
+                            path: "/Linux/文件/文本处理/文本处理",
+                            collapsable: false,
+                            children: [
+                                {
+                                    title: "修改文本",
+                                    path: "/Linux/文件/文本处理/修改文本"
+                                }
+                            ]
                         },
                         {
                             title: "文件属性",
@@ -705,8 +727,8 @@ module.exports = {
                             path: "/Network/网络协议/简介"
                         },
                         {
-                            title: "网络体系结构",
-                            path: "/Network/网络协议/网络体系结构"
+                            title: "网络模型",
+                            path: "/Network/网络协议/网络模型"
                         },
                         {
                             title: "IP",
@@ -719,14 +741,6 @@ module.exports = {
                         {
                             title: "TCP/UDP",
                             path: "/Network/网络协议/TCP-UDP"
-                        },
-                        {
-                            title: "Socket",
-                            path: "/Network/网络协议/Socket"
-                        },
-                        {
-                            title: "MQTT",
-                            path: "/Network/网络协议/MQTT"
                         }
                     ]
                 },
@@ -744,6 +758,10 @@ module.exports = {
                         {
                             title: "Web安全",
                             path: "/Network/计算机安全/Web安全"
+                        },
+                        {
+                            title: "密码安全",
+                            path: "/Network/计算机安全/密码安全"
                         }
                     ]
                 }
@@ -973,7 +991,18 @@ module.exports = {
                         },
                         {
                             title: "配置",
-                            path: "/Database/MySQL/配置"
+                            path: "/Database/MySQL/配置/配置",
+                            collapsable: false,
+                            children: [
+                                {
+                                    title: "日志",
+                                    path: "/Database/MySQL/配置/日志"
+                                },
+                                {
+                                    title: "存储引擎",
+                                    path: "/Database/MySQL/配置/存储引擎"
+                                }
+                            ]
                         },
                         {
                             title: "管理单元",
@@ -984,20 +1013,19 @@ module.exports = {
                             path: "/Database/MySQL/字段"
                         },
                         {
-                            title: "SELECT",
-                            path: "/Database/MySQL/SELECT"
-                        },
-                        {
-                            title: "索引",
-                            path: "/Database/MySQL/索引"
-                        },
-                        {
-                            title: "复合操作",
-                            path: "/Database/MySQL/复合操作"
-                        },
-                        {
-                            title: "存储引擎",
-                            path: "/Database/MySQL/存储引擎"
+                            title: "查询",
+                            path: "/Database/MySQL/查询/查询",
+                            collapsable: false,
+                            children: [
+                                {
+                                    title: "索引",
+                                    path: "/Database/MySQL/查询/索引"
+                                },
+                                {
+                                    title: "复合操作",
+                                    path: "/Database/MySQL/查询/复合操作"
+                                }
+                            ]
                         },
                         {
                             title: "性能优化",
@@ -1313,6 +1341,14 @@ module.exports = {
                             collapsable: false,
                             children: [
                                 {
+                                    title: "原理",
+                                    path: "/DevOps/监控告警/Prometheus/原理"
+                                },
+                                {
+                                    title: "部署",
+                                    path: "/DevOps/监控告警/Prometheus/部署"
+                                },
+                                {
                                     title: "exporter",
                                     path: "/DevOps/监控告警/Prometheus/exporter"
                                 },
@@ -1456,6 +1492,10 @@ module.exports = {
                         {
                             title: "Pulsar",
                             path: "/Distributed/消息队列/Pulsar"
+                        },
+                        {
+                            title: "MQTT",
+                            path: "/Distributed/消息队列/MQTT"
                         }
                     ]
                 },

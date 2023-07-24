@@ -93,7 +93,7 @@
 ：XML 文档对象模型（XML Document Object Model），是一个访问 XML 格式文本的 API 标准。
 - 通常研究的是 XML DOM ，有时也研究 HTML DOM 。
 - DOM 将 XML 文档表示成一个树形结构，XML 中的每个元素都表示成一个单一的节点（元素的值也表示成子节点）。
-  - 例如，下方表示节点 book 拥有一个属性节点 category、一个元素节点 year ，节点 year 拥有一个值为"2000"的文本节点。
+  - 例如，下方表示节点 book 拥有一个属性节点 category、一个元素节点 year ，节点 year 拥有一个值为 "2000" 的文本节点。
     ```xml
     <book category="web">
         <year>2000</year>
@@ -205,7 +205,7 @@ if (y.nodeType == 1) {
 
 ：异步 JS 和 XML（Asynchronous JavaScript and XML）
 - 传统的网页是静态网页，每次改变网页内容时都要重新生成一个 HTML 文件，让浏览器重新加载网页。
-  - 使用 AJAX 技术，可以让浏览器在后台向服务器发出请求，然后改变网页的某些内容，实现动态网页。
+  - 使用 AJAX 技术，可以让浏览器在后台向服务器发出请求，然后改变网页的部分内容，实现动态网页。
   - 使用 AJAX 技术，可以实现异步请求，让 JS 不用等待服务器的响应就继续执行。
 - XMLHttpRequest() 是常用的 JS 异步请求 API ，大部分浏览器都支持。如下：
     ```js
@@ -223,7 +223,6 @@ if (y.nodeType == 1) {
 ：跨域资源共享（Cross-Origin Resource Sharing），是 W3C 标准定义的一种浏览器功能。
 - 浏览器在访问一个网站时，如果向其它域名的网站发送 XMLHttpRequest 请求，称为跨域请求，则存在被 CSRF 攻击的风险。
   - 当网址 `protocol://host:port/path` 的前三个字段全部相同时，才不算跨域。
-  - 大部分浏览器默认会拒绝发送跨域请求。需要服务器主动给 HTTP 响应报文添加特定的 header ，表示服务器愿意接受该 CORS 请求，浏览器才会发送 CORS 请求。
 - 浏览器发出的 CORS 请求分为两类：
   - 简单请求
     - ：请求方法为 GET、HEAD 或 POST ，并且请求头只能使用以下 Headers ：
@@ -245,7 +244,9 @@ if (y.nodeType == 1) {
           Access-Control-Allow-Credentials: true            # 是否允许发送 cookie ，默认为 false
           ```
           如果浏览器发现响应报文中没有包含 Access-Control-Allow-Origin 字段，则认为 CORS 请求失败，不管响应状态码。
-  - 非简单请求
+    - 大部分浏览器默认会拒绝执行跨域请求。需要服务器主动给 HTTP 响应报文添加特定的 header ，表示服务器愿意接受该 CORS 请求，浏览器才会发送 CORS 请求。
+      - Chrome 浏览器从 v85 版本开始，不允许 CORS 的简单请求，只允许非简单请求。
+- 非简单请求
     - 工作流程：
       1. 先发送一个预检请求（preflight request），申请向服务器发送 CORS 请求。例：
           ```sh
@@ -280,6 +281,22 @@ if (y.nodeType == 1) {
           add_header Access-Control-Max-Age 86400;
       }
   }
+  ```
+
+- 例：在浏览器执行以下 JS 代码，发出 CORS 请求
+  ```js
+  fetch('https://test.com/api', {
+          method: 'POST',
+          mode: 'cors',
+          headers: {
+              'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+              userId: '***'
+          }),
+      })
+      .then((res)=>{console.log(res);})
+      .catch(err=>{ console.error(err);})
   ```
 
 ## 绘制图表

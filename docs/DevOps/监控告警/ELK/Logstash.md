@@ -71,11 +71,11 @@
   # dead_letter_queue.enable: false    # 是否启用死信队列，默认为 false
   pipeline:
     batch:
-      size: 125   # input 阶段每接收指定数量的事件，才打包成一个 batch ，供 filter、output 阶段的一个 worker 处理。增加该值会提高处理速度
-      delay: 50   # 收集 batch 时，等待接收新事件的超时时间，单位 ms 。如果等待超时，则立即打包成一个 batch 。每个新事件会单独考虑超时时间
+      # size: 125 # input 阶段每接收指定数量的事件，才打包成一个 batch ，供 filter、output 阶段的一个 worker 处理。增加该值会提高处理速度
+      # delay: 50 # 收集 batch 时，等待接收新事件的超时时间，单位 ms 。如果等待超时，则立即打包成一个 batch 。每个新事件会单独考虑超时时间，因此超时时间应该设置得小些
     workers: 4    # 处理 filter、output 阶段的线程数，默认等于 CPU 核数。可以大于 CPU 核数，因为输出阶段的 worker 会等待网络 IO 而不占用 CPU
   ```
-  - pipeline 在内存中处理的 event 最大数量为 size * workers 。
+  - pipeline 在内存中处理的 event 数量最大为 size * workers 。
   - 接收一个 batch 的最长耗时为 size * delay 。
 
 - pipelines.yml 的配置示例：
@@ -90,7 +90,7 @@
 
 ### 原理
 
-- Linux 系统上通常通过管道符筛选日志，比如 `cat test.log | grep ERROR'` 。而 Logstash 处理数据的机制也称为管道（pipeline），每条数据称为一个事件（event）。
+- Linux 系统上一般通过管道符筛选日志，比如 `cat test.log | grep ERROR'` 。而 Logstash 处理数据的机制也称为管道（pipeline），每条数据称为一个事件（event）。
 - Logstash 可以运行多个管道，每个管道分为三个阶段：
   - input ：输入数据。
   - filter ：过滤、修改数据。该阶段可以省略。
@@ -177,8 +177,8 @@
       - 大部分情况下，会无限重试。
       - 如果 HTTP 响应码为 409 conflict ，则不会重试，丢弃 event 。
       - 如果 HTTP 响应码为 400 mapper_parsing_exception 或 404 ，表示不能重试，则打印报错日志，丢弃 event 。
-        - 可以启用死信队列，将这些 event 保存到 data/dead_letter_queue/ 目录下，然后可通过 input.dead_letter_queue 插件读取。
-      - 如果 HTTP 响应码为 403 pressure too high ，表示 ES 负载过大，拒绝了 bulk 请求。此时会自动重试，但这会导致 ES 的负载更大，可能返回 503 Unavailable ，最终导致 Logstash 放弃重试。建议增加 retry 的间隔。
+        - 可启用死信队列，将这些 event 保存到 `data/dead_letter_queue/` 目录下，然后可通过 input.dead_letter_queue 插件读取。
+      - 如果 HTTP 响应码为 403 pressure too high ，表示 ES 负载过大，拒绝了 bulk 请求。此时会自动重试，但这会导致 ES 的负载更大，可能返回 503 Unavailable ，最终导致 Logstash 放弃重试。因此建议增加 retry 的间隔。
 
 2. 启动 Logstash ，运行指定的管道：
     ```sh

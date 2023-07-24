@@ -31,6 +31,7 @@
       - name: vol-data
         mountPath: /etc/redis.conf
         subPath: redis.conf         # 当 volume 为目录时，可选指定 subPath ，只挂载 volume 中的子路径
+        # subPathExpr: $(POD_NAME)  # 引用 spec.containers[].env 中的环境变量
     volumes:                        # 声明该 Pod 使用的所有 volume
       - name: vol-time
         hostPath:
@@ -52,9 +53,12 @@
   BlockDevice         # hostPath 必须是一个已存在的块设备文件
   CharDevice          # hostPath 必须是一个已存在的字符设备文件
   ```
-- 如果 kubelet 容器化运行，而不是直接运行在主机上，则 hostPath 会使用 kubelet 容器 rootfs 中的路径，映射到主机的 `/var/lib/kubelet/pods/<pod_uid>/volume-subpaths/<volume_name>/<container_name>/0/` 路径之后再挂载到容器。
-  - 此时要省略 subPath ，才能让 hostPath 使用主机路径。可能还要省略 type 。
-- 容器内进程以非 root 用户运行时，通常只能读取 hostPath ，没有修改权限。可以在宿主机上执行 `chown -R <uid>:<uid> $hostPath` ，调整文件权限。
+- 如果 kubelet 容器化运行，而不是直接运行在宿主机上，则挂载 hostPath 时：
+  - 如果省略 hostPath 的 subPath、type ，则会正常挂载宿主机的路径。
+  - 如果不省略 subPath、type ，则不会挂载宿主机的路径，而是在 kubelet 容器的 rootfs 中创建 `$hostPath/$subPath` 路径，映射到宿主机的 `/var/lib/kubelet/pods/<pod_uid>/volume-subpaths/<volume_name>/<container_name>/0/` 路径，然后挂载到容器。
+    - [相关 Issue](https://github.com/kubernetes/kubernetes/issues/61456)
+    - 一种解决方案是，将宿主机的 /tmp、/data 等目录事先挂载到 kubelet 容器中，在这些目录下创建 hostPath、subPath 。
+- 挂载 hostPath 时，如果容器内进程以非 root 用户运行，则只能读取 hostPath ，没有修改权限。可以在宿主机上执行 `chown -R <uid> $hostPath` ，调整文件权限。
 
 ## emptyDir
 
@@ -73,7 +77,7 @@
   spec:
     containers:
     - name: nginx
-      image: nginx:1.20
+      image: nginx:1.23
       volumeMounts:
       - name: volume-cache
         mountPath: /cache
@@ -99,7 +103,7 @@
   spec:
     containers:
     - name: nginx
-      image: nginx:1.20
+      image: nginx:1.23
       volumeMounts:
       - name: podinfo
         mountPath: /etc/podinfo
@@ -119,7 +123,8 @@
 ## ConfigMap
 
 ：用于记录一些非私密的配置参数。
-- 常见用例：创建一个 ConfigMap 对象，记录一些配置参数，然后在 Pod 中引用 ConfigMap ，创建环境变量或 volume 。
+- 常见用途：创建一个 ConfigMap 对象，记录一些配置参数，然后在 Pod 中引用 ConfigMap ，创建环境变量或 volume 。
+  - 如果需要挂载大型文件或很多文件到 Pod 中，则不适合用 ConfigMap 。可考虑用 hostPath、PV ，或者将这些文件打包成一个 Docker 镜像，以 Sidecar 方式运行。
 - 例：一个 ConfigMap
   ```yml
   apiVersion: v1

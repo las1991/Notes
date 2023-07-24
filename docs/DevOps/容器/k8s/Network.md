@@ -176,7 +176,8 @@ k8s 常见的几种网络通信：
       protocol: TCP
       targetPort: 26379
 
-    selector:               # 通过 selector 选中一些 Pod
+    # publishNotReadyAddresses: false # 是否将非 Ready 状态的 Pod 端点加入 EndPoints 。默认为 false
+    selector:                     # 通过 selector 选中一些 Pod
       k8s-app: redis
     # sessionAffinity: ClientIP   # 会话保持的方式。默认为 None ，会将数据包随机转发到各个 Pod IP
     # sessionAffinityConfig:
@@ -419,8 +420,8 @@ k8s 常见的几种网络通信：
 
 ：端点分片，Service 的一种子对象，用于将大量端点分片存储。
 - EndpointSlices 相比 Endpoints 的优点：
-  - 一个 Service 的 EndPoints 每次变化时，需要全量同步到所有节点的 kube-proxy ，开销较大。如果将单个 EndPoints 拆分成多个 EndpointSlice ，则可以增加端点容量、降低同步开销。
-  - 每个 EndPoints 对象最多记录 1000 个端点，超出的部分会截断。而每个 EndpointSlices 默认最多记录 100 个端点，并且容量满了时，k8s 会自动为 Service 添加 EndpointSlices 。
+  - 增加端点容量：每个 EndPoints 对象最多记录 1000 个端点，超出的部分会截断。而每个 EndpointSlices 默认最多记录 100 个端点，并且容量满了时，k8s 会自动为 Service 添加 EndpointSlices 。
+  - 降低同步开销：一个 Service 的 EndPoints 每次变化时，需要全量同步到所有节点的 kube-proxy ，开销较大。如果将单个 EndPoints 拆分成多个 EndpointSlice ，则可以降低同步开销。
   - 每个 Service 最多绑定一个 EndPoints 对象，两者同名。而每个 Service 可以绑定多个 EndpointSlices 对象，名称任意，通过 `kubernetes.io/service-name` 标签记录所属的 Service 。
 - k8s v1.19 开始默认启用 EndpointSlices 功能，创建 Service 时会同时创建 EndPoints 和 EndpointSlices 对象，但实际使用的是 EndpointSlices 。
 

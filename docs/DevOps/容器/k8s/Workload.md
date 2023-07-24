@@ -38,7 +38,7 @@
       spec:                         # Pod 的规格
         containers:                 # 定义该 Pod 中的容器
         - name: nginx               # 该 Pod 中的第一个容器名
-          image: nginx:1.20
+          image: nginx:1.23
   ```
 - Deployment 会自动创建 ReplicaSet 对象，用于运行指定数量的 Pod 副本。
   - 删除一个 Deployment 时，会级联删除其下级对象 ReplicaSet ，和 ReplicaSet 的下级对象 Pod 。
@@ -48,13 +48,13 @@
     ```
     - 不能事先知道 Deployment 创建的 Pod name ，因此一般通过 spec.selector 筛选条件来找到 Deployment 创建的 Pod 。
 
-  - 每个 Pod 中，容器的命名格式为 `k8s_<container_name>_<pod_name>_<namespace_name>_<pod_uid>_<restart_id>` ，例如：
+  - 每个 Pod 中，容器的命名格式为 `k8s_<container_name>_<pod_name>_<namespace_name>_<pod_uid>_<restart_count>` ，例如：
     ```sh
     k8s_POD_nginx-65d9c7f6fc-szgbk_default_c7e3e169-08c9-428f-9a62-0fb5d14336f8_0   # Pod 中内置的 pause 容器，其容器名为 POD
     k8s_nginx_nginx-65d9c7f6fc-szgbk_default_c7e3e169-08c9-428f-9a62-0fb5d14336f8_0
     ```
     - Pod_id 是一个在当前 ReplicaSet 之下唯一的编号，长度为 5 字符。而 pod_uid 是一个在整个 k8s 集群唯一的编号，长度为 36 字符。
-    - Pod 重启时，会创建一组新的容器，容器名末尾的 restart_id 从 0 开始递增。
+    - 因为 restartPolicy 重启容器时，会创建一个新的容器，容器名末尾的 restart_count 从 0 开始递增。
 
 - spec.selector 是必填字段，称为标签选择器，用于与 spec.template.metadata.labels 进行匹配，从而筛选 Pod 进行管理，筛选结果可能有任意个（包括 0 个）。
   - 当 selector 中没有设置筛选条件时，默认选中所有对象。
@@ -184,7 +184,7 @@
       spec:
         containers:
         - name: nginx
-          image: nginx:1.20
+          image: nginx:1.23
   ```
 - DaemonSet 默认会调度到每个节点，可通过 nodeSelector 等方式指定可调度节点。
 - DaemonSet 的更新部署策略（strategy）有两种：
@@ -200,10 +200,11 @@
     - 比如纯前端网站是无状态应用，数据库服务器是有状态应用。
   - 有状态应用
     - ：历史执行的任务会影响新执行的任务，因此需要存储一些历史数据。
-    - 将数据存储在容器中时，会随着容器一起销毁。因此建议将数据存储到挂载卷，或容器外的数据库。
     - 无状态应用故障时，可以立即启动新实例、销毁旧实例。而有状态应用故障时，可能丢失状态数据，甚至不能通过重启来恢复运行，因此风险更大。
-    - 建议尽量将有状态应用改造为无状态，可以随时启动、停止，方便运维。
-- 与 Deployment 相比，StatefulSet 的特点：
+      - 对于有状态应用，如果将数据存储在容器中，则会随着容器一起销毁。因此通常将数据存储到挂载卷，或容器外的数据库。
+      - 例如 Nginx 通常是无状态应用，MySQL 通常是有状态应用。
+    - 用 k8s 部署有状态应用时，通常使用 StatefulSet 。
+- 与 Deployment 相比，StatefulSet 的优点：
   - 有序性
     - ：StatefulSet 会按顺序创建 replicas 个 Pod ，给每个 Pod 分配一个从 0 开始递增的序号。
   - 唯一性
@@ -212,6 +213,10 @@
   - 持久性
     - 删除 Pod 时，会自动重建该 Pod ，采用相同的序号、Pod Name ，但 Pod IP 会重新分配。
     - 删除 Pod 时，默认不会自动删除其挂载的 volume 。重建 Pod 时，会挂载原来的 volume 。
+- 与 Deployment 相比，StatefulSet 的缺点：
+  - 运维成本更大。比如需要配置 Headless Service、PVC 。
+    - 因此，如果只需部署少量有状态应用，使用 docker-compose 可能比 k8s 更方便。
+    - 如果能将有状态应用改造为无状态应用，则可使用 Deployment 部署，更方便运维。
 
 - 例：
   ```yml
@@ -251,7 +256,7 @@
       spec:
         containers:
         - name: nginx
-          image: nginx:1.20
+          image: nginx:1.23
     # updateStrategy:         # 更新部署的策略，与 DaemonSet 的 strategy 相似。默认为 RollingUpdate ，可改为 OnDelete
     #   type: RollingUpdate
     #   rollingUpdate:
@@ -291,7 +296,7 @@
 ## Job
 
 ：一次性任务，适合部署运行一段时间就会自行终止的 Pod 。
-- 创建 Job 之后，它会立即创建指定个 Pod 副本，而 Pod 会被自动调度、运行。
+- 创建 Job 之后，它会立即创建指定个 Pod 副本，这些 Pod 会被自动调度、运行。
 - 例：用以下配置创建一个 Job
   ```yml
   apiVersion: batch/v1
@@ -322,7 +327,7 @@
     namespace: default
   spec:
     backoffLimit: 6     # 重试次数，默认为 6
-    completions: 1      # 完成数量，默认为 1 。当 Job 下级的 Succeeded Pod 达到该数量时，Job 变为 Complete 状态
+    completions: 1      # 完成数量，默认为 1 。表示存在多少个 Succeeded Pod 时，Job 变为 Complete 状态
     parallelism: 1      # 并行数量，默认为 1 。表示最多存在多少个 Running Pod 。如果为 0 ，则不创建 Pod
     # suspend: false    # 是否暂停 Job
     # activeDeadlineSeconds: 0    # Job 执行的超时时间，超过则终止 Job ，变为 Failed 状态。默认不限制
@@ -385,7 +390,7 @@
     - 采用 `restartPolicy: OnFailure` 时，Job 每次重试，会重启 Failed Pod 。
       - Pod 的 `status.containerStatuses[0].restartCount` 字段记录了 Pod 被 restartPolicy 重启的次数。如果 `sum_all_pod_restartCount ≥ backoffLimit` ，则 Job 停止重试。
       - 因此最多可能运行 `parallelism + backoffLimit` 次 Pod 。不过最后一次重启时，Pod 刚启动几秒，就会因为 restartCount 达到阈值而被终止。相当于少了一次重试。
-    - 如果主动删除 Pod ，导致 Job 自动创建新 Pod ，不会消耗重试次数。
+    - 如果主动删除 Pod ，导致 Job 自动创建新 Pod ，则不会消耗重试次数。
   - Job 达到 backoffLimit 限制时，会停止重试，变为 Failed 状态，自动删除所有 Running Pod ，保留其它 Pod 。
     - 特别地，如果采用 `restartPolicy: OnFailure` ，则会删除所有 Pod ，不方便保留现场、看日志。
     - 因此，建议让 Job 采用 `restartPolicy: Never` 。

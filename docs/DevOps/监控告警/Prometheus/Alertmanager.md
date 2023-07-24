@@ -1,6 +1,6 @@
 # Alertmanager
 
-：作为一个 HTTP 服务器运行，用于将 Prometheus 产生的警报加工之后转发给用户。
+：一个 Web 服务器，用于将 Prometheus 产生的警报加工之后转发给用户。
 - [GitHub](https://github.com/prometheus/alertmanager)
 - 优点：
   - Prometheus 产生的警报是 JSON 格式的信息，Alertmanager 可以对它们进行分组管理，加工成某种格式的告警消息，再转发给用户。
@@ -69,7 +69,7 @@
       volumes:
         - .:/alertmanager
   ```
-  需要先配置挂载目录的权限：
+  需要调整挂载目录的权限：
   ```sh
   mkdir data
   chown -R 65534 .

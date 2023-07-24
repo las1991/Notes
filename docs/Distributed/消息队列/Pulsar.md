@@ -4,7 +4,7 @@
 - [官方文档](https://pulsar.apache.org/docs)
 - 发音为 `/ˈpʌlsɑː(r)/` 。
 - 采用 Java 开发。
-- 2016 年由 Yahoo 公司开源，后来捐献给了 ASF 。
+- 2016 年由 Yahoo 公司开源，后来交给 ASF 基金会管理。
 
 ## 原理
 
@@ -26,7 +26,7 @@
 
 - 对比 Kafka 与 Pulsar ：
   - Kafka 增减 broker 数量时需要迁移 partition 、rebalance ，耗时久。而 Pulsar 以 Segment 为单位在服务器之间迁移数据。
-  - Pulsar 还不成熟、普及，架构较复杂，因此一般情况下还是推荐使用 Kafka 。
+  - Pulsar 软件还不成熟，架构较复杂，因此一般情况下还是推荐使用 Kafka 。
 
 ## 部署
 

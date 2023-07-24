@@ -1,10 +1,8 @@
 # OpenSearch
 
-- ELK 软件分为社区版（OSS）、收费版（X-Pack）。
-  - Elastic 公司加大了商业化的程度，逐渐对软件的部分功能收费，导致 OSS 版缺少一些重要功能，比如身份认证、用户权限控制、告警。
-- 2019 年，AWS 公司创建了 Open Distro for Elasticsearch 项目，通过给 ES、Kibana 的 OSS 版安装一些插件，扩展出 X-Pack 版的功能。
-  - 功能、配置有些小差异，这是为了回避 Elastic 公司的版权。
-- 2021 年初，Elastic 公司宣布从 v7.11 版本开始，将 ES、Kibana 软件的开源协议从 Apache V2 改为 SSPL 。
+- 2019 年，AWS 公司创建了 Open Distro for Elasticsearch 项目，通过给 ES、Kibana 的 OSS 版安装一些插件，实现 x-pack 的功能。
+  - 与 x-pack 的功能、配置有些小差异，这是为了回避 Elastic 公司的版权。
+- 2021 年，ES、Kibana 软件从 v7.11 版本开始，将开源协议从 Apache V2 改为 SSPL 。
   - SSPL 是一种未被 OSI（Open Source Initiative）组织认可的开源协议，禁止用户将该软件作为服务出售，除非购买商业许可证。
   - 对此，AWS 公司宣布从 ES、Kibana 分叉出 [OpenSearch](https://opensearch.org) 项目，取代之前的 Open Distro for Elasticsearch 项目，采用 Apache V2 开源协议。主要发布了以下软件：
     - [OpenSearch](https://github.com/opensearch-project/OpenSearch) ：对标 ES 。
@@ -19,7 +17,7 @@
   services:
     opensearch:
       container_name: opensearch
-      image: opensearchproject/opensearch:1.1.0
+      image: opensearchproject/opensearch:2.6.0
       restart: unless-stopped
       ports:
         - 9200:9200
@@ -33,28 +31,25 @@
   services:
     opensearch_dashboards:
       container_name: opensearch_dashboards
-      image: opensearchproject/opensearch-dashboards:1.1.0
+      image: opensearchproject/opensearch-dashboards:2.6.0
       restart: unless-stopped
-      # environment:
-      #   NODE_OPTIONS: --max-old-space-size=2048   # 如果查询的数据过大，需要增加 node.js 最大占用内存
       ports:
         - 5601:5601
       volumes:
         - ./config:/usr/share/opensearch-dashboards/config
         - ./data:/usr/share/opensearch-dashboards/data
   ```
-  - 可以先用 docker run 启动一个容器，将其中的 config 目录拷贝出来，修改之后再挂载。
   - 容器内以非 root 用户运行服务，需要调整挂载目录的权限：
     ```sh
-    mkdir -p  config data
-    chown -R  1000  .
+    mkdir -p data
+    chown -R 1000 .
     ```
 
 ## 配置
 
 - elasticsearch.yml 的配置示例：
   ```yml
-  cluster.name: test
+  cluster.name: cluster-1
   discovery.type: single-node
   node.name: node-1
   network.host: 0.0.0.0
@@ -69,11 +64,11 @@
   server.host: 0.0.0.0
   server.name: opensearch_dashboards
 
-  elasticsearch.hosts: ['https://10.0.0.1:9200']  # 连接 ES 时采用 HTTPS 协议
-  elasticsearch.ssl.verificationMode: none        # 不验证 ES 的 SSL 证书是否有效
-  elasticsearch.username: kibanaserver
-  elasticsearch.password: ******
-  elasticsearch.requestHeadersWhitelist: [securitytenant,Authorization]
+  opensearch.hosts: ['https://10.0.0.1:9200']  # 连接 ES 时采用 HTTPS 协议
+  opensearch.ssl.verificationMode: none        # 不验证 ES 的 SSL 证书是否有效
+  opensearch.username: kibanaserver
+  opensearch.password: ******
+  opensearch.requestHeadersWhitelist: [securitytenant,Authorization]
 
   opensearch_security.cookie.secure: false        # 当前端采用 HTTPS 时启用它
   opensearch_security.cookie.ttl: 86400000        # cookie 的有效期，单位 ms ，默认为 1 小时
